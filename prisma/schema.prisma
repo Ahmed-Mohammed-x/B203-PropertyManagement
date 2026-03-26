@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url = "file:./prisma/dev.db"
+}
+
+enum Role {
+  LANDLORD
+  TENANT
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+}
+
+model User {
+  id           String @id @default(cuid())
+  email        String @unique
+  passwordHash String
+  role         Role
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Landlord relations
+  propertiesOwned    Property[]           @relation("LandlordProperties")
+  tenantsManaged     TenantProfile[]      @relation("LandlordTenants")
+  paymentsManaged    Payment[]            @relation("LandlordPayments")
+  maintenanceManaged MaintenanceRequest[] @relation("LandlordMaintenance")
+
+  // Tenant relations
+  tenantProfile       TenantProfile?       @relation("TenantUser")
+  payments            Payment[]            @relation("TenantPayments")
+  maintenanceRequests MaintenanceRequest[] @relation("TenantMaintenance")
+}
+
+model Property {
+  id      String @id @default(cuid())
+  name    String
+  address String
+
+  landlordId String
+  landlord   User @relation("LandlordProperties", fields: [landlordId], references: [id])
+
+  tenants  TenantProfile[]
+  payments Payment[]
+  tickets  MaintenanceRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TenantProfile {
+  id String @id @default(cuid())
+
+  userId String @unique
+  user   User   @relation("TenantUser", fields: [userId], references: [id])
+
+  landlordId String
+  landlord   User @relation("LandlordTenants", fields: [landlordId], references: [id])
+
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Payment {
+  id     String @id @default(cuid())
+  month  String // e.g. "2026-07"
+  amount Int
+  status PaymentStatus @default(PENDING)
+  paidAt DateTime?
+
+  landlordId String
+  landlord   User @relation("LandlordPayments", fields: [landlordId], references: [id])
+
+  tenantId String
+  tenant   User @relation("TenantPayments", fields: [tenantId], references: [id])
+
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MaintenanceRequest {
+  id          String @id @default(cuid())
+  title       String
+  description String
+  status      TicketStatus @default(OPEN)
+  resolvedAt  DateTime?
+
+  landlordId String
+  landlord   User @relation("LandlordMaintenance", fields: [landlordId], references: [id])
+
+  tenantId String
+  tenant   User @relation("TenantMaintenance", fields: [tenantId], references: [id])
+
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
